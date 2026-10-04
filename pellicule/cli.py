@@ -82,7 +82,7 @@ def main(argv: list[str] | None = None) -> None:
         help="URL POST /ingest",
     )
     mcp_tap.add_argument(
-        "command",
+        "server_cmd",
         nargs=argparse.REMAINDER,
         help="Commande du serveur MCP (après --)",
     )
@@ -99,7 +99,7 @@ def main(argv: list[str] | None = None) -> None:
     if command == "mcp-tap":
         from pellicule.mcp_tap import main as mcp_tap_main
 
-        sys.exit(mcp_tap_main(["--ingest", args.ingest, *args.command]))
+        sys.exit(mcp_tap_main(["--ingest", args.ingest, *args.server_cmd]))
     if command in (None, "serve"):
         sys.exit(_run_serve(args))
 

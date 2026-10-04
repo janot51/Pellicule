@@ -23,6 +23,27 @@ def test_frame_roundtrip(tmp_path: Path) -> None:
     assert out == payload
 
 
+def test_mcp_tap_reaches_child() -> None:
+    root = Path(__file__).resolve().parents[1]
+    pellicule = root / ".venv" / "Scripts" / "pellicule.exe"
+    proc = subprocess.run(
+        [
+            str(pellicule),
+            "mcp-tap",
+            "--",
+            sys.executable,
+            "-c",
+            "print('CHILD', flush=True)",
+        ],
+        cwd=root,
+        capture_output=True,
+        timeout=15,
+    )
+    assert proc.returncode == 0
+    assert b"usage:" not in proc.stdout
+    assert b"CHILD" in proc.stdout
+
+
 def test_mcp_tap_help() -> None:
     root = Path(__file__).resolve().parents[1]
     pellicule = root / ".venv" / "Scripts" / "pellicule.exe"
