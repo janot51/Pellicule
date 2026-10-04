@@ -49,6 +49,7 @@ class _FakeAsyncClient:
 def test_missing_keys_emits_llm_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     async def run() -> None:
         monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("PELLICULE_DATA", str(tmp_path))
         store = SessionStore()
         hub = EventHub()
         app = create_proxy_app(store, hub, ClientGate())
@@ -71,6 +72,7 @@ def test_missing_keys_emits_llm_error(tmp_path: Path, monkeypatch: pytest.Monkey
 def test_second_client_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     async def run() -> None:
         monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("PELLICULE_DATA", str(tmp_path))
         (tmp_path / "pellicule.keys").write_text(
             "[mock]\nbase_url = http://example/v1\napi_key = k\n",
             encoding="utf-8",

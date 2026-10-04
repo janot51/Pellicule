@@ -10,10 +10,36 @@ from pellicule.hub import EventHub
 from pellicule.policy import PolicyService, load_policy_config
 from pellicule.proxy_app import create_proxy_app
 from pellicule.session import SessionStore
-from pellicule.settings import PROXY_HOST, PROXY_PORT, UI_HOST, UI_PORT, case_dir_from_env, sessions_dir
+from pellicule.keys import KeysError, provider_names
+from pellicule.settings import (
+    PROXY_HOST,
+    PROXY_PORT,
+    UI_HOST,
+    UI_PORT,
+    case_dir_from_env,
+    data_root,
+    sessions_dir,
+)
 from pellicule.ui_app import create_ui_app
 from pellicule.kilo_tail import KiloTailCoordinator
 from pellicule.watcher import WatcherCoordinator
+
+
+def _print_startup_summary(policy_config) -> None:
+    try:
+        providers = ", ".join(provider_names()) or "(aucun)"
+    except KeysError:
+        providers = "(pellicule.keys manquant ou invalide)"
+    print(
+        f"Pellicule — proxy http://{PROXY_HOST}:{PROXY_PORT}/v1 "
+        f"| UI http://{UI_HOST}:{UI_PORT}"
+    )
+    print(f"  données : {data_root()}")
+    print(f"  upstream : {providers}")
+    print(f"  policy : {policy_config.config_source}")
+    case = case_dir_from_env()
+    if case:
+        print(f"  affaire : {case}")
 
 
 async def serve() -> None:
@@ -23,6 +49,7 @@ async def serve() -> None:
     gate = ClientGate()
 
     policy_config = load_policy_config()
+    _print_startup_summary(policy_config)
     policy = PolicyService(policy_config)
 
     async def record_and_publish(event: dict[str, Any]) -> None:

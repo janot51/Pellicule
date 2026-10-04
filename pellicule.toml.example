@@ -1,0 +1,25 @@
+# Copiez vers pellicule.toml et adaptez (fichier ignoré par git si local).
+# Priorité : options CLI > variables PELLICULE_* > ce fichier > défauts.
+
+[data]
+# dir = "C:/chemin/vers/donnees"
+
+[server]
+proxy_port = 8765
+ui_port = 8766
+
+[policy]
+# merged_config = "merged/kilo.jsonc"
+# agents_dir = "agents"
+# base_config = "config/kilo.base.jsonc"
+# workspace = "C:/chemin/vers/workspace"
+
+[case]
+# dir = "C:/chemin/vers/affaire"
+
+[kilo]
+# tasks_dir = "C:/chemin/vers/kilo/tasks"
+
+[watch]
+# ignore_suffixes = ".tmp,.lock,.swp"
+# ignore_dirs = ".git,node_modules,.venv"

@@ -1,47 +1,88 @@
-# Pellicule
-
-Outil local de profiling d'un harness d'agent (proxy OpenAI-compatible + film des événements).
-
-## Démarrage
-
-```bash
-pip install -e .
-pellicule
-```
-
-- Proxy Kilo : `http://127.0.0.1:8765/v1`
-- Interface : `http://127.0.0.1:8766`
-
-## Clés upstream
-
-Créer `pellicule.keys` à la racine du répertoire de travail (fichier ignoré par git) :
-
-```ini
-[sidonie]
-base_url = https://votre-endpoint-sidonie/v1
-# api_key optionnel si le gateway n'en exige pas
-
-[albert]
-base_url = https://votre-endpoint-albert/v1
-api_key = sk-...
-```
-
-Le modèle envoyé par Kilo doit être préfixé (`sidonie/...` ou `albert/...`) pour choisir l'upstream.
-
-## Sessions
-
-Les traces sont écrites dans `sessions/<session_id>/events.jsonl`.
-
-Variable optionnelle `PELLICULE_DATA` : répertoire contenant `sessions/` et `pellicule.keys` (défaut : répertoire courant).
-
-## Policy (jalon 3)
-
-Le proxy charge la config Kilo au démarrage (fichier fusionné, puis repli `agents/*.md` ou `kilo.base.jsonc`). Variables utiles :
-
-- `PELLICULE_MERGED_CONFIG` : chemin vers un `kilo.jsonc` fusionné
-- `PELLICULE_AGENTS_DIR` : dossier `agents/` (frontmatter YAML)
-- `PELLICULE_BASE_CONFIG` : repli pédagogique
-- `PELLICULE_WORKSPACE` : affaire / workspace pour la recherche des configs
-- En-tête `X-Pellicule-Mode` : mode actif (`planner`, etc.) pour l'évaluation policy
-- `PELLICULE_CASE_DIR` ou en-tête `X-Pellicule-Case-Dir` : dossier d'affaire surveillé (`case_write`)
-- Filtres watcher : `PELLICULE_WATCH_IGNORE_SUFFIXES`, `PELLICULE_WATCH_IGNORE_DIRS` (valeurs par défaut dans `settings.py`)
+# Pellicule
+
+Outil local de profiling d'un harness d'agent (proxy OpenAI-compatible + film des événements).
+
+## Installation rapide (Windows)
+
+```powershell
+.\install.ps1
+```
+
+Le script vérifie Python 3.11+, crée un venv, installe le paquet et lance `pellicule init` si besoin.
+
+## Installation manuelle
+
+```bash
+python -m venv .venv
+# Windows : .venv\Scripts\activate
+pip install -e .
+pellicule init
+pellicule doctor
+pellicule
+```
+
+- Proxy Kilo : `http://127.0.0.1:8765/v1`
+- Interface : `http://127.0.0.1:8766`
+
+## Configuration
+
+Priorité : **options CLI** > **variables `PELLICULE_*`** > **`pellicule.toml`** > **défauts**.
+
+1. Copiez [`pellicule.toml.example`](pellicule.toml.example) vers `pellicule.toml` (ou `pellicule init`).
+2. Copiez [`pellicule.keys.example`](pellicule.keys.example) vers `pellicule.keys` dans le répertoire de données.
+
+Exemple `pellicule.toml` :
+
+```toml
+[data]
+dir = "."
+
+[policy]
+merged_config = "chemin/vers/kilo.jsonc"
+agents_dir = "agents"
+workspace = "C:/mon/workspace"
+
+[case]
+dir = "C:/mon/affaire"
+```
+
+### Clés upstream (`pellicule.keys`)
+
+```ini
+[sidonie]
+base_url = https://votre-endpoint-sidonie/v1
+
+[albert]
+base_url = https://votre-endpoint-albert/v1
+api_key = sk-...
+```
+
+Le modèle envoyé par Kilo doit être préfixé (`sidonie/...` ou `albert/...`) pour choisir l'upstream.
+
+### Commandes utiles
+
+| Commande | Rôle |
+|----------|------|
+| `pellicule` / `pellicule serve` | Lance proxy + interface |
+| `pellicule init` | Crée `pellicule.toml` et `pellicule.keys` (`--force` pour écraser) |
+| `pellicule doctor` | Vérifie clés, policy, ports, dossiers Kilo |
+
+Ports : `--proxy-port`, `--ui-port` ou `[server]` dans le TOML, ou `PELLICULE_PROXY_PORT` / `PELLICULE_UI_PORT`.
+
+## Sessions
+
+Les traces sont écrites dans `sessions/<session_id>/events.jsonl` sous le répertoire de données (`[data] dir` ou `PELLICULE_DATA`, défaut : répertoire courant).
+
+## Policy
+
+Le proxy charge la config Kilo au démarrage (fichier fusionné, puis repli `agents/*.md` ou `kilo.base.jsonc`). Équivalents TOML sous `[policy]` :
+
+- `merged_config` → `PELLICULE_MERGED_CONFIG`
+- `agents_dir` → `PELLICULE_AGENTS_DIR`
+- `base_config` → `PELLICULE_BASE_CONFIG`
+- `workspace` → `PELLICULE_WORKSPACE`
+
+En-têtes HTTP : `X-Pellicule-Mode`, `X-Pellicule-Case-Dir`. Dossier affaire : `[case] dir` ou `PELLICULE_CASE_DIR`. Filtres watcher : `[watch]` ou `PELLICULE_WATCH_IGNORE_SUFFIXES` / `PELLICULE_WATCH_IGNORE_DIRS`.
+
+Chemin du fichier TOML : `PELLICULE_CONFIG` (sinon `./pellicule.toml`).
+

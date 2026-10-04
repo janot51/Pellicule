@@ -1,0 +1,15 @@
+# Copiez vers pellicule.keys dans le répertoire de données (voir [data] dir).
+# Préfixez le modèle Kilo : sidonie/model-name ou albert/model-name
+
+[sidonie]
+base_url = https://votre-endpoint-sidonie/v1
+# api_key optionnel
+
+[albert]
+base_url = https://votre-endpoint-albert/v1
+api_key = sk-...
+
+# Si Kilo utilise le provider « pellicule » (base URL 127.0.0.1:8765), modèles pellicule/...
+[pellicule]
+base_url = https://votre-endpoint-albert/v1
+api_key = sk-...

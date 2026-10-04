@@ -1,5 +1,6 @@
 sessions/
 pellicule.keys
+pellicule.toml
 .pellicule/
 .venv/
 venv/
