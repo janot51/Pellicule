@@ -26,6 +26,7 @@ class SessionStore:
         self._pending_task_parents: dict[str, str] = {}
         self._previous_system_text: str | None = None
         self._previous_message_fps: list[dict[str, str]] | None = None
+        self._message_fps_session_id: str | None = None
         self._last_mode_source: str | None = None
         self._previous_turn_tool_args: list[dict[str, Any]] = []
         self._current_turn_tool_args: list[dict[str, Any]] = []
@@ -60,13 +61,23 @@ class SessionStore:
         self._models_logged = True
 
     def adopt_session(self, session_id: str) -> str:
+        if self._session_id != session_id:
+            self._detach_llm_message_context()
         self._session_id = session_id
         self._dir = sessions_dir() / session_id
         self._dir.mkdir(parents=True, exist_ok=True)
         return session_id
 
+    def _detach_llm_message_context(self) -> None:
+        """Oublie l'historique proxy du tour précédent (autre session ou nouvelle discussion)."""
+        self._previous_message_fps = None
+        self._message_fps_session_id = None
+        self._previous_system_text = None
+        self._notes_md_seen = False
+
     def ensure_session(self) -> str:
         if self._session_id is None:
+            self._detach_llm_message_context()
             self._session_id = str(uuid.uuid4())
             self._dir = sessions_dir() / self._session_id
             self._dir.mkdir(parents=True, exist_ok=True)
@@ -101,6 +112,7 @@ class SessionStore:
         self._turn = 0
         self._exec_tool_call_ids = set()
         self._parent_session_id = parent_id
+        self._detach_llm_message_context()
         return self.ensure_session()
 
     def pop_to_parent_session(self) -> str | None:
@@ -108,8 +120,11 @@ class SessionStore:
             self._parent_session_id = None
             return self._session_id
         parent = self._session_stack.pop()
+        prev = self._session_id
         self._session_id = parent
         self._dir = sessions_dir() / parent
+        if prev != parent:
+            self._detach_llm_message_context()
         self._parent_session_id = None
         if self._session_stack:
             self._parent_session_id = self._session_stack[-1]
@@ -174,8 +189,14 @@ class SessionStore:
     def previous_message_fps(self) -> list[dict[str, str]] | None:
         return self._previous_message_fps
 
+    def previous_message_fps_for_compact(self) -> list[dict[str, str]]:
+        if not self._session_id or self._message_fps_session_id != self._session_id:
+            return []
+        return list(self._previous_message_fps or [])
+
     def set_previous_message_fps(self, fps: list[dict[str, str]]) -> None:
         self._previous_message_fps = fps
+        self._message_fps_session_id = self._session_id
 
     @property
     def last_mode_source(self) -> str | None:

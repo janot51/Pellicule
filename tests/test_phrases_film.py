@@ -95,6 +95,51 @@ def test_compact_on_message_shrink(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     asyncio.run(run())
 
 
+def test_compact_not_on_new_session_after_shrink(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def run() -> None:
+        monkeypatch.chdir(tmp_path)
+        store = SessionStore()
+        events: list[dict] = []
+
+        async def record(ev: dict) -> None:
+            store.append_event(ev)
+            events.append(ev)
+
+        timer = RequestTimer()
+        msgs10 = [{"role": "user", "content": f"m{i}"} for i in range(10)]
+        store.ensure_session()
+        await emit_llm_and_tool_requests(
+            store,
+            record,
+            timer,
+            "mock",
+            {"messages": msgs10},
+            stream=False,
+            response_body={"choices": [{"message": {"content": "ok"}}]},
+            stream_fold={},
+            error=None,
+            latency_ms=1,
+        )
+        store.adopt_session("autre-discussion-uuid")
+        msgs2 = [{"role": "user", "content": "nouveau fil"}, {"role": "assistant", "content": "salut"}]
+        await emit_llm_and_tool_requests(
+            store,
+            record,
+            timer,
+            "mock",
+            {"messages": msgs2},
+            stream=False,
+            response_body={"choices": [{"message": {"content": "ok2"}}]},
+            stream_fold={},
+            error=None,
+            latency_ms=1,
+        )
+        compact = [e for e in events if e["layer"] == "compact"]
+        assert compact == []
+
+    asyncio.run(run())
+
+
 def test_task_without_brief_key(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     async def run() -> None:
         monkeypatch.chdir(tmp_path)

@@ -475,12 +475,12 @@ async def emit_llm(
 ) -> None:
     if policy and not error:
         policy.record_llm_completion_tokens(completion_tokens)
+    sid = store.ensure_session()
     messages = request_body.get("messages")
-    before_fps = store.previous_message_fps or []
+    before_fps = store.previous_message_fps_for_compact()
     after_fps = SessionStore.fingerprint_messages(messages)
     llm_index = store.increment_llm_count()
     await _emit_compact_if_needed(store, record, before_fps, after_fps, llm_index=llm_index)
-    sid = store.ensure_session()
     turn = store.next_turn()
     if prompt_tokens is None and completion_tokens is None and response_body:
         usage = response_body.get("usage")
