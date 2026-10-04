@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pellicule</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header class="header">
+    <h1>Pellicule</h1>
+    <p class="subtitle">Film des couches — LLM, outils, policy Kilo, exécution</p>
+    <div class="token-bar" id="token-bar" aria-live="polite"></div>
+  </header>
+  <main class="layout">
+    <section class="legends" id="legends"></section>
+    <section class="film-wrap">
+      <section class="film" id="film" aria-live="polite"></section>
+    </section>
+    <aside class="session-panel" id="session-panel">
+      <h2 class="panel-title">Sessions</h2>
+      <ul class="session-list" id="session-list"></ul>
+    </aside>
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>

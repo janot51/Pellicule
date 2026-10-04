@@ -1,0 +1,58 @@
+{
+  "default_agent": "planner",
+  "permission": {
+    "read": {
+      "*": "allow",
+      "sources/**/*.pdf": "deny"
+    },
+    "bash": {
+      "*": "ask",
+      "python -c*": "deny",
+      "pip*": "deny"
+    },
+    "task": {
+      "*": "ask",
+      "helper-a": "allow"
+    }
+  },
+  "agent": {
+    "planner": {
+      "permission": {
+        "read": {
+          "*": "allow",
+          "sources/**/*.pdf": "deny"
+        },
+        "edit": {
+          "NOTES.md": "allow",
+          "output/**/*.md": "allow",
+          "analysis/**": "deny"
+        },
+        "bash": {
+          "*": "deny"
+        },
+        "task": {
+          "ingestor": "allow",
+          "helper-b": "deny"
+        }
+      }
+    },
+    "ingestor": {
+      "permission": {
+        "bash": {
+          "*": "deny",
+          "*lab-sim*extract.py*": "allow"
+        }
+      }
+    },
+    "auditor": {
+      "permission": {
+        "edit": {
+          "*": "deny"
+        }
+      }
+    }
+  },
+  "mcp": {
+    "tools": ["doc_sim_tool"]
+  }
+}
