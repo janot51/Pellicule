@@ -321,6 +321,40 @@ html:not([data-theme="dark"]) .theme-label-dark {
   display: none;
 }
 
+.case-dir-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: min(22rem, 42vw);
+  padding: 0.35rem 0.65rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.8125rem;
+  border: 1px solid var(--border-soft);
+  background: color-mix(in srgb, var(--surface) 88%, var(--muted));
+  color: var(--muted);
+}
+
+.case-dir-label {
+  flex-shrink: 0;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.case-dir-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.75rem;
+  color: var(--text);
+}
+
+.case-dir-pill.is-empty .case-dir-value {
+  font-family: inherit;
+  font-style: italic;
+  color: var(--muted);
+}
+
 .status-pill {
   display: inline-flex;
   align-items: center;

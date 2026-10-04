@@ -10,8 +10,8 @@ from fastapi.staticfiles import StaticFiles
 from pellicule.hub import EventHub
 from pellicule.layers import LAYER_META
 from pellicule.policy.jsonc import permission_object_for_tool
-from pellicule.replay import cumulative_tokens, list_sessions, load_session_events
-from pellicule.settings import static_dir
+from pellicule.replay import cumulative_tokens, list_sessions, load_session_events, session_case_dir
+from pellicule.settings import case_dir_from_env, static_dir
 
 RecordFn = Callable[[dict[str, Any]], Awaitable[None]]
 
@@ -36,6 +36,15 @@ def create_ui_app(
     @app.get("/api/layers")
     async def layers_api() -> dict[str, Any]:
         return LAYER_META
+
+    @app.get("/api/context")
+    async def ui_context() -> dict[str, Any]:
+        active: str | None = None
+        if store is not None:
+            active = store.case_dir
+        env = case_dir_from_env()
+        default = str(env) if env else None
+        return {"case_dir": active or default}
 
     @app.get("/api/rule")
     async def rule_fragment(tool: str, rule_source: str, mode: str = "") -> JSONResponse:
@@ -66,6 +75,7 @@ def create_ui_app(
         events = load_session_events(session_id)
         return {
             "session_id": session_id,
+            "case_dir": session_case_dir(session_id, events),
             "events": events,
             "tokens": cumulative_tokens(events),
         }

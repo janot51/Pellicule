@@ -52,6 +52,21 @@ def load_session_events(session_id: str) -> list[dict[str, Any]]:
     return events
 
 
+def session_case_dir(session_id: str, events: list[dict[str, Any]] | None = None) -> str | None:
+    meta = session_meta(session_id)
+    if meta:
+        raw = meta.get("case_dir")
+        if raw is not None and str(raw).strip():
+            return str(raw)
+    if events is None:
+        events = load_session_events(session_id)
+    for ev in events:
+        raw = ev.get("case_dir")
+        if raw is not None and str(raw).strip():
+            return str(raw)
+    return None
+
+
 def session_meta(session_id: str) -> dict[str, Any] | None:
     meta_path = sessions_dir() / session_id / "meta.json"
     if not meta_path.is_file():

@@ -20,7 +20,7 @@ LAYER_META: dict[str, dict[str, str]] = {
         "legend_fr": "Le dossier d'affaire a bougé. Seule preuve hors du modèle.",
     },
     "mode": {
-        "legend_fr": "Ce n'est pas un sous-agent. La commande ou l'invite a changé les droits.",
+        "legend_fr": "Profil d'agent Kilo actif (chef, plan…). Les règles allow/deny/ask viennent de cet agent — pas d'une délégation via l'outil task.",
     },
     "kilo_log": {
         "legend_fr": "Source Kilo non comprise. On ne l'invente pas.",

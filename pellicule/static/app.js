@@ -3,6 +3,8 @@ const legendsEl = document.getElementById("legends");
 const tokenBarEl = document.getElementById("token-bar");
 const trajectoryEl = document.getElementById("trajectory");
 const connectionStatusEl = document.getElementById("connection-status");
+const caseDirDisplayEl = document.getElementById("case-dir-display");
+const caseDirValueEl = document.getElementById("case-dir-value");
 const liveBtnEl = document.getElementById("live-btn");
 const sessionGroupsEl = document.getElementById("session-groups");
 const sessionHintEl = document.getElementById("session-hint");
@@ -50,6 +52,10 @@ let turnSegments = [];
 let turnAnchorEls = [];
 let sseOpen = false;
 let activeSessionId = null;
+/** @type {string | null} chemin d'affaire affiché dans l'en-tête */
+let displayedCaseDir = null;
+
+const NO_CASE_LABEL = "(sans affaire)";
 
 const SEGMENT_TONE_RANK = {
   neutral: 0,
@@ -690,7 +696,9 @@ function whatHappened(ev, ctx) {
     const mode = d.mode || ev.mode || "—";
     const source = d.source;
     const confidence = d.confidence || ev.mode_confidence;
-    const lines = ["Même échange, autres droits : ce n'est pas un sous-agent."];
+    const lines = [
+      `Profil « ${mode} » : c'est lui qui choisit les règles de permission pour la suite de l'échange.`,
+    ];
     if (source != null) {
       let gloss = SOURCE_GLOSS[source];
       if (gloss) {
@@ -1343,6 +1351,38 @@ function truncatePath(path, maxLen) {
   return "…" + path.slice(-(maxLen - 1));
 }
 
+function setDisplayedCaseDir(caseDir) {
+  const trimmed = caseDir != null && String(caseDir).trim() !== "" ? String(caseDir) : null;
+  displayedCaseDir = trimmed;
+  if (!caseDirDisplayEl || !caseDirValueEl) return;
+  const empty = trimmed === null;
+  const key = empty ? NO_CASE_LABEL : trimmed;
+  caseDirDisplayEl.title = key;
+  caseDirDisplayEl.classList.toggle("is-empty", empty);
+  caseDirValueEl.textContent = empty ? NO_CASE_LABEL : truncatePath(trimmed, 36);
+}
+
+function noteCaseDirFromEvent(ev) {
+  if (ev && ev.case_dir != null && String(ev.case_dir).trim() !== "") {
+    setDisplayedCaseDir(ev.case_dir);
+  }
+}
+
+async function refreshCaseDirFromServer() {
+  try {
+    const res = await fetch("/api/context");
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && data.case_dir != null && String(data.case_dir).trim() !== "") {
+      setDisplayedCaseDir(data.case_dir);
+    } else if (liveReplay && displayedCaseDir === null) {
+      setDisplayedCaseDir(null);
+    }
+  } catch {
+    /* contexte optionnel */
+  }
+}
+
 function toggleEventRow(row) {
   const open = row.classList.toggle("is-open");
   const btn = row.querySelector(".event-line");
@@ -1350,6 +1390,7 @@ function toggleEventRow(row) {
 }
 
 function appendEvent(ev) {
+  noteCaseDirFromEvent(ev);
   if (ev.layer === "policy" && ev.detail && ev.detail.ask_transition && ev.tool_call_id) {
     updatePolicyRow(ev);
     accumulateTokens(ev);
@@ -1528,6 +1569,7 @@ async function replaySession(sessionId) {
   refreshConnectionStatus();
   const res = await fetch(`/sessions/${encodeURIComponent(sessionId)}`);
   const data = await res.json();
+  setDisplayedCaseDir(data.case_dir);
   resetFilm();
   const events = data.events || [];
   for (const ev of events) {
@@ -1619,8 +1661,10 @@ async function loadSessions() {
 function returnToLive() {
   liveReplay = true;
   activeSessionId = null;
+  displayedCaseDir = null;
   resetFilm();
   refreshConnectionStatus();
+  refreshCaseDirFromServer();
   loadSessions();
 }
 
@@ -1660,8 +1704,10 @@ if (replayLatestBtn) {
     if (latestSessionId) replaySession(latestSessionId);
   });
 }
+setDisplayedCaseDir(null);
 loadLegend();
 loadSessions();
+refreshCaseDirFromServer();
 updateTokenBar();
 updateFilmEmptyState();
 refreshConnectionStatus();
