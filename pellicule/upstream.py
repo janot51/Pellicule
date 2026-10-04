@@ -51,3 +51,12 @@ def models_url(creds: UpstreamCredentials) -> str:
     if base.endswith("/v1"):
         return f"{base}/models"
     return f"{base}/v1/models"
+
+
+def upstream_headers(creds: UpstreamCredentials, *, json_body: bool = False) -> dict[str, str]:
+    headers: dict[str, str] = {}
+    if creds.api_key:
+        headers["Authorization"] = f"Bearer {creds.api_key}"
+    if json_body:
+        headers["Content-Type"] = "application/json"
+    return headers

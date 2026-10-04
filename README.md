@@ -19,7 +19,7 @@ Créer `pellicule.keys` à la racine du répertoire de travail (fichier ignoré 
 ```ini
 [sidonie]
 base_url = https://votre-endpoint-sidonie/v1
-api_key = sk-...
+# api_key optionnel si le gateway n'en exige pas
 
 [albert]
 base_url = https://votre-endpoint-albert/v1

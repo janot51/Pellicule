@@ -29,6 +29,7 @@ from pellicule.upstream import (
     models_url,
     resolve_model,
     resolve_provider,
+    upstream_headers,
 )
 
 UPSTREAM_HEADER = "x-pellicule-upstream"
@@ -165,10 +166,7 @@ def create_proxy_app(
 
         upstream_body = rewrite_model_body(body, resolved)
         url = chat_completions_url(resolved.credentials)
-        headers = {
-            "Authorization": f"Bearer {resolved.credentials.api_key}",
-            "Content-Type": "application/json",
-        }
+        headers = upstream_headers(resolved.credentials, json_body=True)
         stream = bool(body.get("stream"))
         active_mode = store.active_mode or (
             policy.resolve_mode(request.headers.get(MODE_HEADER)) if policy else None
@@ -337,7 +335,7 @@ def create_proxy_app(
             )
 
         url = models_url(resolved.credentials)
-        headers = {"Authorization": f"Bearer {resolved.credentials.api_key}"}
+        headers = upstream_headers(resolved.credentials)
         async with async_http_client(timeout=60.0) as client:
             try:
                 resp = await client.get(url, headers=headers)

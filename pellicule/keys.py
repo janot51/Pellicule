@@ -40,6 +40,6 @@ def load_upstream(name: str) -> UpstreamCredentials:
         raise KeysError(f"Section [{section}] absente dans {keys_file()}")
     base_url = parser.get(section, "base_url", fallback="").strip().rstrip("/")
     api_key = parser.get(section, "api_key", fallback="").strip()
-    if not base_url or not api_key:
-        raise KeysError(f"base_url et api_key requis dans [{section}] de {keys_file()}")
+    if not base_url:
+        raise KeysError(f"base_url requis dans [{section}] de {keys_file()}")
     return UpstreamCredentials(name=section, base_url=base_url, api_key=api_key)
