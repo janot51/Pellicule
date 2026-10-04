@@ -18,12 +18,13 @@ from pellicule.event_emit import (
 )
 from pellicule.kilo_tail import KiloTailCoordinator
 from pellicule.hub import EventHub
-from pellicule.keys import KeysError
+from pellicule.keys import KeysError, provider_names
 from pellicule.policy.service import PolicyService
 from pellicule.session import SessionStore
 from pellicule.watcher import WatcherCoordinator
 from pellicule.stream_relay import RequestTimer, relay_sse, usage_tokens
 from pellicule.upstream import (
+    IMPLICIT_PROVIDER,
     ResolvedUpstream,
     chat_completions_url,
     models_url,
@@ -173,7 +174,11 @@ def create_proxy_app(
         )
         mode_confidence = store.mode_confidence
 
-        async with async_http_client(timeout=httpx.Timeout(None)) as client:
+        # Le client reste ouvert pendant tout le stream. Un `async with`
+        # le fermerait au return, avant que Starlette ne lise le corps.
+        client = async_http_client(timeout=httpx.Timeout(None))
+        release_client = True
+        try:
             if not stream:
                 try:
                     resp = await client.post(url, json=upstream_body, headers=headers)
@@ -269,14 +274,32 @@ def create_proxy_app(
                 )
                 return JSONResponse(status_code=resp.status_code, content=err_data)
 
+            release_client = False
+
             async def body_stream() -> Any:
                 fold: dict[str, Any] = {}
+                stream_error: str | None = None
                 try:
-                    async for chunk, acc in relay_sse(resp.aiter_bytes()):
-                        fold = acc
-                        yield chunk
+                    try:
+                        async for chunk, acc in relay_sse(resp.aiter_bytes()):
+                            fold = acc
+                            yield chunk
+                    except httpx.HTTPError as exc:
+                        stream_error = str(exc)
+                        payload = json.dumps(
+                            {
+                                "error": {
+                                    "message": stream_error,
+                                    "type": "upstream_error",
+                                }
+                            },
+                            ensure_ascii=False,
+                        )
+                        yield f"data: {payload}\n\n".encode()
+                        yield b"data: [DONE]\n\n"
                 finally:
                     await resp.aclose()
+                    await client.aclose()
                     usage = fold.get("usage") if isinstance(fold.get("usage"), dict) else None
                     pt, ct = usage_tokens(usage)
                     await emit_llm_and_tool_requests(
@@ -288,7 +311,7 @@ def create_proxy_app(
                         stream=True,
                         response_body=None,
                         stream_fold=fold,
-                        error=None,
+                        error=stream_error,
                         latency_ms=timer.elapsed_ms(),
                         prompt_tokens=pt,
                         completion_tokens=ct,
@@ -304,6 +327,9 @@ def create_proxy_app(
                 media_type=resp.headers.get("content-type", "text/event-stream"),
                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
             )
+        finally:
+            if release_client:
+                await client.aclose()
 
     @app.get("/v1/models")
     async def list_models(request: Request) -> Response:
@@ -318,6 +344,8 @@ def create_proxy_app(
                 resolved = resolve_model(model_q, header_up)
             elif header_up:
                 resolved = resolve_provider(header_up)
+            elif IMPLICIT_PROVIDER in provider_names():
+                resolved = resolve_provider(IMPLICIT_PROVIDER)
             else:
                 return JSONResponse(
                     status_code=400,

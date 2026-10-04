@@ -11,6 +11,11 @@ class ResolvedUpstream:
     upstream_model: str
 
 
+# Section utilisée quand Kilo envoie l'identifiant nu (ex. deepseek-v4-flash).
+# Le provider Kilo s'appelle déjà Pellicule : il ne préfixe pas le modèle.
+IMPLICIT_PROVIDER = "pellicule"
+
+
 def resolve_model(model: str, upstream_header: str | None) -> ResolvedUpstream:
     model = model.strip()
     header = (upstream_header or "").strip().lower()
@@ -25,6 +30,12 @@ def resolve_model(model: str, upstream_header: str | None) -> ResolvedUpstream:
 
     if header:
         creds = load_upstream(header)
+        return ResolvedUpstream(credentials=creds, upstream_model=model)
+
+    # Identifiant nu (Kilo : deepseek-v4-flash). Un id avec slash dont le
+    # préfixe n'est pas une section connue reste inchangé et exige un header.
+    if model and "/" not in model and IMPLICIT_PROVIDER in provider_names():
+        creds = load_upstream(IMPLICIT_PROVIDER)
         return ResolvedUpstream(credentials=creds, upstream_model=model)
 
     known = ", ".join(provider_names()) or "(aucun — créez pellicule.keys)"

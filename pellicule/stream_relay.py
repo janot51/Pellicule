@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import time
 from collections.abc import AsyncIterator
 from typing import Any
 
 from pellicule.tool_extract import merge_stream_chunk
+
+_MSG_CHAR_LIMIT = 2_000_000
+_MSG_HEAD_CHARS = 2048
 
 
 def _message_roles_summary(messages: list[Any] | None) -> list[dict[str, Any]]:
@@ -26,6 +30,61 @@ def _message_roles_summary(messages: list[Any] | None) -> list[dict[str, Any]]:
     return out
 
 
+def _content_to_text(content: Any) -> str:
+    if content is None:
+        return ""
+    if isinstance(content, str):
+        return content
+    return json.dumps(content, ensure_ascii=False)
+
+
+def _retain_message_content(text: str) -> dict[str, Any]:
+    if len(text) <= _MSG_CHAR_LIMIT:
+        return {"content": text, "truncated": False}
+    head = text[:_MSG_HEAD_CHARS]
+    data = text.encode("utf-8")
+    return {
+        "content": head,
+        "truncated": True,
+        "sha256": hashlib.sha256(data).hexdigest(),
+        "size_bytes": len(data),
+        "head": head,
+    }
+
+
+def _messages_for_detail(
+    request_body: dict[str, Any],
+    response_body: dict[str, Any] | None,
+    stream_fold: dict[str, Any],
+) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for msg in request_body.get("messages") or []:
+        if not isinstance(msg, dict):
+            continue
+        role = msg.get("role")
+        if role not in ("system", "user"):
+            continue
+        text = _content_to_text(msg.get("content"))
+        entry: dict[str, Any] = {"role": role}
+        entry.update(_retain_message_content(text))
+        out.append(entry)
+
+    assistant_text = ""
+    if response_body:
+        choices = response_body.get("choices")
+        if isinstance(choices, list) and choices and isinstance(choices[0], dict):
+            message = choices[0].get("message")
+            if isinstance(message, dict):
+                assistant_text = _content_to_text(message.get("content"))
+    elif stream_fold:
+        assistant_text = _content_to_text(stream_fold.get("content") or stream_fold.get("text") or "")
+    if assistant_text:
+        entry = {"role": "assistant"}
+        entry.update(_retain_message_content(assistant_text))
+        out.append(entry)
+    return out
+
+
 def build_llm_detail(
     *,
     stream: bool,
@@ -37,6 +96,7 @@ def build_llm_detail(
     detail: dict[str, Any] = {
         "stream": stream,
         "message_roles": _message_roles_summary(request_body.get("messages")),
+        "messages": _messages_for_detail(request_body, response_body, stream_fold),
     }
     if error:
         detail["error"] = error

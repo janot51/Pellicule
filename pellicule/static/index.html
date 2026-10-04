@@ -4,24 +4,138 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Pellicule</title>
-  <link rel="stylesheet" href="/static/style.css" />
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem("pellicule.theme");
+        document.documentElement.setAttribute("data-theme", stored === "dark" ? "dark" : "light");
+      } catch (e) {
+        document.documentElement.setAttribute("data-theme", "light");
+      }
+    })();
+  </script>
+  <link rel="stylesheet" href="/static/style.css?v=9" />
 </head>
 <body>
-  <header class="header">
-    <h1>Pellicule</h1>
-    <p class="subtitle">Film des couches — LLM, outils, policy Kilo, exécution</p>
-    <div class="token-bar" id="token-bar" aria-live="polite"></div>
-  </header>
-  <main class="layout">
-    <section class="legends" id="legends"></section>
-    <section class="film-wrap">
-      <section class="film" id="film" aria-live="polite"></section>
-    </section>
-    <aside class="session-panel" id="session-panel">
-      <h2 class="panel-title">Sessions</h2>
-      <ul class="session-list" id="session-list"></ul>
-    </aside>
-  </main>
-  <script src="/static/app.js"></script>
+  <div class="app-shell">
+    <header class="header">
+      <div class="header-inner">
+        <div class="header-brand">
+          <div class="brand-mark" aria-hidden="true">
+            <svg class="bot" viewBox="0 0 64 64" focusable="false">
+              <g class="bot-antenna">
+                <path d="M32 14.5V8" stroke-width="1.8" stroke-linecap="round"/>
+                <circle class="bot-antenna-tip" cx="32" cy="6.2" r="2.5"/>
+              </g>
+              <rect class="bot-ear" x="7.5" y="24" width="5.5" height="9" rx="2.4"/>
+              <rect class="bot-ear" x="51" y="24" width="5.5" height="9" rx="2.4"/>
+              <rect class="bot-head" x="13" y="15" width="38" height="28" rx="10"/>
+              <rect class="bot-visor" x="19" y="21" width="26" height="11" rx="5.5"/>
+              <g class="bot-eyes">
+                <circle cx="26" cy="26.5" r="2.15"/>
+                <circle cx="38" cy="26.5" r="2.15"/>
+                <circle class="bot-eye-glint" cx="25.2" cy="25.7" r="0.7"/>
+                <circle class="bot-eye-glint" cx="37.2" cy="25.7" r="0.7"/>
+              </g>
+              <path class="bot-smile" d="M27 37c1.5 1.7 8.5 1.7 10 0" stroke-width="1.5" stroke-linecap="round"/>
+              <path class="bot-arm" d="M13 46.5c-3 1.2-5 3.2-5.5 5.5" stroke-width="2" stroke-linecap="round"/>
+              <path class="bot-arm" d="M51 46.5c3 1.2 5 3.2 5.5 5.5" stroke-width="2" stroke-linecap="round"/>
+              <rect class="bot-torso" x="21" y="44.5" width="22" height="13" rx="5"/>
+              <circle class="bot-led" cx="28.5" cy="51" r="1.35"/>
+              <circle class="bot-led bot-led-alt" cx="35.5" cy="51" r="1.35"/>
+            </svg>
+          </div>
+          <div>
+            <h1>Pellicule</h1>
+            <p class="subtitle">Observabilité agent — film des couches en direct</p>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button type="button" class="btn btn-ghost theme-toggle" id="theme-toggle" aria-pressed="false" aria-label="Basculer entre le mode clair et le mode sombre">
+            <span class="theme-toggle-icon" aria-hidden="true">
+              <svg class="theme-icon-sun" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+                <circle cx="8" cy="8" r="2.6"/>
+                <path d="M8 1.4v1.6M8 13v1.6M1.4 8h1.6M13 8h1.6M3.2 3.2l1.1 1.1M11.7 11.7l1.1 1.1M12.8 3.2l-1.1 1.1M4.3 11.7l-1.1 1.1"/>
+              </svg>
+              <svg class="theme-icon-moon" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M9.2 1.6a6.2 6.2 0 1 0 5.2 8.7 5.1 5.1 0 0 1-5.2-8.7z"/>
+              </svg>
+            </span>
+            <span class="theme-toggle-label">
+              <span class="theme-label-light">Clair</span>
+              <span class="theme-label-dark">Sombre</span>
+            </span>
+          </button>
+          <span class="status-pill" id="connection-status" role="status">En direct</span>
+          <button type="button" class="btn btn-ghost hidden" id="live-btn">Retour au direct</button>
+        </div>
+      </div>
+      <div class="token-card" id="token-bar" aria-live="polite"></div>
+    </header>
+
+    <main class="layout">
+      <section class="film-column">
+        <nav class="trajectory-rail" id="trajectory" aria-label="Trajectoire par tour" hidden></nav>
+        <div class="film-stage">
+          <div class="film-empty" id="film-empty">
+            <div class="film-empty-visual" aria-hidden="true">
+              <svg class="bot bot-float" viewBox="0 0 64 64" focusable="false">
+                <g class="bot-antenna">
+                  <path d="M32 14.5V8" stroke-width="1.8" stroke-linecap="round"/>
+                  <circle class="bot-antenna-tip" cx="32" cy="6.2" r="2.5"/>
+                </g>
+                <rect class="bot-ear" x="7.5" y="24" width="5.5" height="9" rx="2.4"/>
+                <rect class="bot-ear" x="51" y="24" width="5.5" height="9" rx="2.4"/>
+                <rect class="bot-head" x="13" y="15" width="38" height="28" rx="10"/>
+                <rect class="bot-visor" x="19" y="21" width="26" height="11" rx="5.5"/>
+                <g class="bot-eyes">
+                  <circle cx="26" cy="26.5" r="2.15"/>
+                  <circle cx="38" cy="26.5" r="2.15"/>
+                  <circle class="bot-eye-glint" cx="25.2" cy="25.7" r="0.7"/>
+                  <circle class="bot-eye-glint" cx="37.2" cy="25.7" r="0.7"/>
+                </g>
+                <path class="bot-smile" d="M27 37c1.5 1.7 8.5 1.7 10 0" stroke-width="1.5" stroke-linecap="round"/>
+                <path class="bot-arm" d="M13 46.5c-3 1.2-5 3.2-5.5 5.5" stroke-width="2" stroke-linecap="round"/>
+                <path class="bot-arm" d="M51 46.5c3 1.2 5 3.2 5.5 5.5" stroke-width="2" stroke-linecap="round"/>
+                <rect class="bot-torso" x="21" y="44.5" width="22" height="13" rx="5"/>
+                <circle class="bot-led" cx="28.5" cy="51" r="1.35"/>
+                <circle class="bot-led bot-led-alt" cx="35.5" cy="51" r="1.35"/>
+              </svg>
+            </div>
+            <h2 class="film-empty-title">Aucun événement pour l’instant</h2>
+            <p class="film-empty-text">
+              En <strong>direct</strong>, seuls les nouveaux événements s’affichent ici (via le proxy).
+              Pour voir un enregistrement, choisissez une session à droite ou ci-dessous.
+            </p>
+            <p class="film-empty-hint hidden" id="film-empty-hint"></p>
+            <button type="button" class="btn btn-primary hidden" id="replay-latest-btn">Rejouer la dernière session</button>
+          </div>
+          <section class="film" id="film" aria-live="polite"></section>
+        </div>
+      </section>
+
+      <aside class="sidebar" id="session-panel">
+        <div class="sidebar-block">
+          <h2 class="sidebar-heading">Sessions</h2>
+          <p class="sidebar-hint" id="session-hint">Direct — film en cours</p>
+          <div class="session-groups" id="session-groups"></div>
+          <p class="session-empty" id="session-empty" hidden>Aucune session enregistrée sur ce poste.</p>
+        </div>
+        <details class="legends-drawer" id="legends-drawer">
+          <summary>Couches</summary>
+          <div class="layer-filter-block">
+            <p class="layer-filter-label">Afficher dans le film</p>
+            <div class="layer-filter-toolbar">
+              <button type="button" class="btn btn-ghost btn-sm" id="layers-enable-all">Tout</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="layers-disable-all">Aucun</button>
+            </div>
+            <div class="layer-filter-chips" id="layer-filter-chips" role="group" aria-label="Filtre des couches"></div>
+          </div>
+          <div class="legends" id="legends" aria-label="Légende des couches"></div>
+        </details>
+      </aside>
+    </main>
+  </div>
+  <script src="/static/app.js?v=8"></script>
 </body>
 </html>

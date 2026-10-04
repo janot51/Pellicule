@@ -75,6 +75,18 @@ def main(argv: list[str] | None = None) -> None:
 
     sub.add_parser("doctor", help="Vérifier l'installation et la configuration")
 
+    mcp_tap = sub.add_parser("mcp-tap", help="Relais MCP vers Pellicule /ingest")
+    mcp_tap.add_argument(
+        "--ingest",
+        default="http://127.0.0.1:8766/ingest",
+        help="URL POST /ingest",
+    )
+    mcp_tap.add_argument(
+        "command",
+        nargs=argparse.REMAINDER,
+        help="Commande du serveur MCP (après --)",
+    )
+
     _add_serve_args(parser)
 
     args = parser.parse_args(argv)
@@ -84,6 +96,10 @@ def main(argv: list[str] | None = None) -> None:
         sys.exit(_run_init(args))
     if command == "doctor":
         sys.exit(_run_doctor(args))
+    if command == "mcp-tap":
+        from pellicule.mcp_tap import main as mcp_tap_main
+
+        sys.exit(mcp_tap_main(["--ingest", args.ingest, *args.command]))
     if command in (None, "serve"):
         sys.exit(_run_serve(args))
 

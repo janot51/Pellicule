@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import uuid
 from pathlib import Path
@@ -23,6 +24,13 @@ class SessionStore:
         self._session_stack: list[str] = []
         self._context_window: int | None = None
         self._pending_task_parents: dict[str, str] = {}
+        self._previous_system_text: str | None = None
+        self._previous_message_fps: list[dict[str, str]] | None = None
+        self._last_mode_source: str | None = None
+        self._previous_turn_tool_args: list[dict[str, Any]] = []
+        self._current_turn_tool_args: list[dict[str, Any]] = []
+        self._notes_md_seen: bool = False
+        self._llm_count: int = 0
 
     @property
     def session_id(self) -> str | None:
@@ -51,6 +59,12 @@ class SessionStore:
     def mark_models_logged(self) -> None:
         self._models_logged = True
 
+    def adopt_session(self, session_id: str) -> str:
+        self._session_id = session_id
+        self._dir = sessions_dir() / session_id
+        self._dir.mkdir(parents=True, exist_ok=True)
+        return session_id
+
     def ensure_session(self) -> str:
         if self._session_id is None:
             self._session_id = str(uuid.uuid4())
@@ -68,7 +82,17 @@ class SessionStore:
                 json.dumps(meta, ensure_ascii=False, indent=2),
                 encoding="utf-8",
             )
+            self._write_active_session()
         return self._session_id
+
+    def _write_active_session(self) -> None:
+        if not self._session_id:
+            return
+        path = sessions_dir().parent / "active_session.json"
+        path.write_text(
+            json.dumps({"session_id": self._session_id, "ts": schema.utc_now_iso()}, ensure_ascii=False),
+            encoding="utf-8",
+        )
 
     def spawn_child_session(self, parent_id: str) -> str:
         self._session_stack.append(parent_id)
@@ -129,7 +153,72 @@ class SessionStore:
         sid = self.ensure_session()
         if self._parent_session_id and not event.get("parent_session_id"):
             event["parent_session_id"] = self._parent_session_id
+        if event.get("layer") == "case_write":
+            detail = event.get("detail") or {}
+            path_val = detail.get("path")
+            if isinstance(path_val, str) and path_val.endswith("NOTES.md"):
+                self._notes_md_seen = True
         assert self._dir is not None
         path = self._dir / "events.jsonl"
         with path.open("a", encoding="utf-8") as f:
             f.write(schema.event_to_jsonl_line(event))
+
+    @property
+    def previous_system_text(self) -> str | None:
+        return self._previous_system_text
+
+    def set_previous_system_text(self, text: str | None) -> None:
+        self._previous_system_text = text
+
+    @property
+    def previous_message_fps(self) -> list[dict[str, str]] | None:
+        return self._previous_message_fps
+
+    def set_previous_message_fps(self, fps: list[dict[str, str]]) -> None:
+        self._previous_message_fps = fps
+
+    @property
+    def last_mode_source(self) -> str | None:
+        return self._last_mode_source
+
+    def set_last_mode_source(self, source: str | None) -> None:
+        self._last_mode_source = source
+
+    @property
+    def notes_md_seen(self) -> bool:
+        return self._notes_md_seen
+
+    def begin_tool_turn(self) -> None:
+        self._previous_turn_tool_args = list(self._current_turn_tool_args)
+        self._current_turn_tool_args = []
+
+    def register_tool_request_args(self, arguments: Any) -> None:
+        if isinstance(arguments, dict):
+            self._current_turn_tool_args.append(arguments)
+
+    def tool_arguments_for_skill_why(self) -> list[dict[str, Any]]:
+        return self._previous_turn_tool_args + self._current_turn_tool_args
+
+    @staticmethod
+    def fingerprint_messages(messages: Any) -> list[dict[str, str]]:
+        out: list[dict[str, str]] = []
+        if not isinstance(messages, list):
+            return out
+        for msg in messages:
+            if not isinstance(msg, dict):
+                continue
+            role = str(msg.get("role") or "")
+            content = msg.get("content")
+            if isinstance(content, str):
+                data = content.encode("utf-8")
+            elif content is None:
+                data = b""
+            else:
+                data = json.dumps(content, ensure_ascii=False).encode("utf-8")
+            sha = hashlib.sha256(data).hexdigest()
+            out.append({"role": role, "sha256": sha})
+        return out
+
+    def increment_llm_count(self) -> int:
+        self._llm_count += 1
+        return self._llm_count

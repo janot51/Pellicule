@@ -77,6 +77,9 @@ class CaseWatcher:
         if forbidden:
             detail["annotation"] = "écriture que la config interdisait"
             detail["policy_verdict"] = "deny"
+        from pellicule.mcp_ingest import attach_case_write_link
+
+        attach_case_write_link(self.store, detail)
         sid = self.store.ensure_session()
         turn = self.store.next_turn()
         summary = f"case_write {change} {rel_path}"

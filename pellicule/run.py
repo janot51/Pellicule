@@ -63,7 +63,7 @@ async def serve() -> None:
         await watcher.set_case_dir(env_case)
 
     proxy = create_proxy_app(store, hub, gate, policy, watcher, kilo_tail)
-    ui = create_ui_app(hub)
+    ui = create_ui_app(hub, store=store, record_and_publish=record_and_publish)
 
     proxy_config = uvicorn.Config(
         proxy,

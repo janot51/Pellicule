@@ -28,6 +28,15 @@ LAYER_META: dict[str, dict[str, str]] = {
     "compact": {
         "legend_fr": "Le contexte a été résumé. Ce qui n'était pas dans NOTES.md est perdu.",
     },
+    "click": {
+        "legend_fr": "Geste de l'utilisateur sur la fenêtre de permission. Ce n'est pas la règle.",
+    },
+    "mcp": {
+        "legend_fr": "Kilo a parlé au processus MCP. Ce n'est pas la demande du modèle.",
+    },
+    "skill": {
+        "legend_fr": "Un corps de skill est entré dans le prompt. Le catalogue seul ne compte pas.",
+    },
 }
 
 

@@ -9,7 +9,8 @@ base_url = https://votre-endpoint-sidonie/v1
 base_url = https://votre-endpoint-albert/v1
 api_key = sk-...
 
-# Si Kilo utilise le provider « pellicule » (base URL 127.0.0.1:8765), modèles pellicule/...
+# Provider Kilo « Pellicule » : l'identifiant nu (deepseek-v4-flash) part ici.
+# pellicule/deepseek-v4-flash fonctionne aussi ; le préfixe est retiré avant l'upstream.
 [pellicule]
 base_url = https://votre-endpoint-albert/v1
 api_key = sk-...

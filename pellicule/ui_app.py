@@ -1,30 +1,61 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+from typing import Any, Awaitable, Callable
 
-from fastapi import FastAPI
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from pellicule.hub import EventHub
 from pellicule.layers import LAYER_META
+from pellicule.policy.jsonc import permission_object_for_tool
 from pellicule.replay import cumulative_tokens, list_sessions, load_session_events
 from pellicule.settings import static_dir
 
+RecordFn = Callable[[dict[str, Any]], Awaitable[None]]
 
-def create_ui_app(hub: EventHub) -> FastAPI:
+
+def create_ui_app(
+    hub: EventHub,
+    *,
+    store: Any | None = None,
+    record_and_publish: RecordFn | None = None,
+) -> FastAPI:
     app = FastAPI(title="Pellicule", docs_url=None, redoc_url=None)
     static_path = static_dir()
     app.mount("/static", StaticFiles(directory=static_path), name="static")
 
     @app.get("/")
     async def index() -> FileResponse:
-        return FileResponse(static_path / "index.html")
+        return FileResponse(
+            static_path / "index.html",
+            headers={"Cache-Control": "no-cache"},
+        )
 
     @app.get("/api/layers")
     async def layers_api() -> dict[str, Any]:
         return LAYER_META
+
+    @app.get("/api/rule")
+    async def rule_fragment(tool: str, rule_source: str, mode: str = "") -> JSONResponse:
+        obj = permission_object_for_tool(rule_source, tool)
+        if obj is None:
+            raise HTTPException(status_code=404, detail="rule_not_found")
+        return JSONResponse(obj)
+
+    if store is not None and record_and_publish is not None:
+
+        @app.post("/ingest")
+        async def ingest(request: Request) -> JSONResponse:
+            client = request.client
+            if client is None or client.host not in ("127.0.0.1", "::1"):
+                raise HTTPException(status_code=403, detail="forbidden")
+            from pellicule.mcp_ingest import handle_ingest
+
+            body = await request.json()
+            await handle_ingest(store, record_and_publish, body)
+            return JSONResponse({"ok": True})
 
     @app.get("/sessions")
     async def sessions_list() -> dict[str, Any]:

@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Awaitable, Callable
 
 from pellicule import schema
+from pellicule.policy.ask_state import tool_message_indicates_rejection
 from pellicule.policy.models import LoadedPolicyConfig, PolicyEvaluation
 from pellicule.session import SessionStore
 
@@ -185,6 +186,19 @@ def _paths_compatible(local: str | None, kilo: str | None) -> bool:
     return a == b or a.endswith("/" + b) or b.endswith("/" + a)
 
 
+def click_choice_from_log(parsed: ParsedKiloLog, raw: str) -> str:
+    lower = raw.lower()
+    if parsed.verdict == "deny" or tool_message_indicates_rejection(raw):
+        return "reject"
+    if parsed.verdict == "allow":
+        if "once" in lower:
+            return "allow_once"
+        if "toujours" in lower or "always" in lower:
+            return "allow_always"
+        return "allow"
+    return "allow"
+
+
 def reconcile_verdicts(
     evaluation: PolicyEvaluation,
     parsed: ParsedKiloLog,
@@ -347,30 +361,35 @@ class KiloTailCoordinator:
         if not agree and hypothesis is None:
             hypothesis = "rule_not_in_loaded_config"
 
-        detail = dict(pending.policy_detail)
-        detail["kilo_log"] = raw
-        detail["agree"] = agree
-        detail["hypothesis"] = hypothesis if not agree else None
-        detail["kilo_reconciliation"] = True
+        choice = click_choice_from_log(parsed, raw)
+        click_detail: dict[str, Any] = {
+            "raw": raw,
+            "tool": pending.tool,
+            "tool_call_id": matched_id,
+            "choice": choice,
+            "agree": agree,
+        }
+        if not agree and hypothesis:
+            click_detail["hypothesis"] = hypothesis
         if ambiguous:
-            detail["ambiguous_task"] = True
+            click_detail["ambiguous_task"] = True
         task_mode = mode_from_task_dir(task_dir)
         if task_mode:
-            detail["kilo_task_mode"] = task_mode
+            click_detail["kilo_task_mode"] = task_mode
 
         sid = self.store.ensure_session()
         turn = self.store.next_turn()
         event = schema.build_event(
             session_id=sid,
-            layer="policy",
+            layer="click",
             turn=turn,
             model=None,
-            summary=pending.policy_detail.get("verdict", "policy") + " (log Kilo)",
+            summary=f"click {choice} {pending.tool}",
             latency_ms=None,
             prompt_tokens=None,
             completion_tokens=None,
             tool_call_id=matched_id,
-            detail=detail,
+            detail=click_detail,
             mode=pending.mode,
             mode_confidence=pending.mode_confidence,
             case_dir=self.store.case_dir,
@@ -395,10 +414,15 @@ class KiloTailCoordinator:
             parsed,
             mode_confidence=mode_confidence or pending.mode_confidence,
         )
-        detail = dict(pending.policy_detail)
-        detail["kilo_log"] = raw_line
-        detail["agree"] = agree
-        detail["hypothesis"] = hypothesis if not agree else None
-        detail["kilo_reconciliation"] = True
+        choice = click_choice_from_log(parsed, raw_line)
+        detail = {
+            "raw": raw_line,
+            "tool": pending.tool,
+            "tool_call_id": tool_call_id,
+            "choice": choice,
+            "agree": agree,
+        }
+        if not agree and hypothesis:
+            detail["hypothesis"] = hypothesis
         self._pending.pop(tool_call_id, None)
         return detail
